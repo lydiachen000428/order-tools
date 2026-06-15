@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>訂單篩選與 Outlook 查詢工具</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;background:#f5f5f3;color:#1a1a1a;padding:24px}
+  .app{max-width:720px;margin:0 auto}
+  h1{font-size:18px;font-weight:500;margin-bottom:20px;color:#1a1a1a}
+  .card{background:#fff;border:0.5px solid rgba(0,0,0,0.12);border-radius:12px;padding:1rem 1.25rem;margin-bottom:12px}
+  .section-title{font-size:11px;color:#888;letter-spacing:.08em;text-transform:uppercase;margin:0 0 8px}
+  .drop-zone{border:1.5px dashed rgba(0,0,0,0.2);border-radius:12px;padding:2rem;text-align:center;cursor:pointer;transition:background .15s;margin-bottom:12px}
+  .drop-zone:hover,.drop-zone.drag-over{background:#f0f0ee}
+  .drop-zone i{font-size:28px;color:#aaa;display:block;margin-bottom:8px}
+  .drop-zone p{margin:0;color:#666;font-size:13px}
+  .drop-zone small{color:#aaa;font-size:11px}
+  .date-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+  .field-label{font-size:12px;color:#666;margin-bottom:4px}
+  input[type=date]{width:100%;padding:7px 10px;border:0.5px solid rgba(0,0,0,0.2);border-radius:8px;font-size:13px;background:#fff;color:#1a1a1a}
+  input[type=date]:focus{outline:none;border-color:#4a90d9}
+  input[type=password],input[type=text]{width:100%;padding:7px 10px;border:0.5px solid rgba(0,0,0,0.2);border-radius:8px;font-size:12px;font-family:monospace;background:#fff;color:#1a1a1a}
+  input[type=password]:focus,input[type=text]:focus{outline:none;border-color:#4a90d9}
+  .btn{background:#fff;border:0.5px solid rgba(0,0,0,0.2);border-radius:8px;padding:8px 20px;font-size:13px;cursor:pointer;color:#1a1a1a;width:100%;margin-bottom:4px;transition:background .1s}
+  .btn:hover:not(:disabled){background:#f5f5f3}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn-blue{border-color:#185fa5;color:#185fa5}
+  .btn-blue:hover:not(:disabled){background:#e6f1fb}
+  .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+  .stat{background:#f5f5f3;border-radius:8px;padding:10px 12px}
+  .stat-val{font-size:20px;font-weight:500;color:#1a1a1a}
+  .stat-lbl{font-size:11px;color:#aaa;margin-top:2px}
+  .table-wrap{overflow-x:auto;margin-bottom:10px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{text-align:left;padding:6px 8px;border-bottom:0.5px solid rgba(0,0,0,0.15);color:#888;font-weight:500;font-size:11px;white-space:nowrap}
+  td{padding:6px 8px;border-bottom:0.5px solid rgba(0,0,0,0.07);color:#1a1a1a;word-break:break-word}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#f9f9f7}
+  .copy-btn{font-size:11px;padding:4px 12px;border:0.5px solid rgba(0,0,0,0.15);border-radius:8px;background:transparent;cursor:pointer;color:#666;margin-right:6px}
+  .copy-btn:hover{background:#f5f5f3}
+  .step{display:flex;gap:10px;align-items:flex-start;margin-bottom:16px}
+  .step-num{width:24px;height:24px;border-radius:50%;background:#f0f0ee;border:0.5px solid rgba(0,0,0,0.12);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:#888;flex-shrink:0;margin-top:1px}
+  .step-num.active{background:#e6f1fb;color:#185fa5;border-color:#b5d4f4}
+  .step-num.done{background:#eaf3de;color:#3b6d11;border-color:#c0dd97}
+  .step-body{flex:1}
+  .step-title{font-size:13px;font-weight:500;color:#1a1a1a;margin-bottom:6px}
+  .msg{padding:10px 12px;border-radius:8px;font-size:12px;margin-bottom:8px}
+  .msg-info{background:#e6f1fb;color:#185fa5}
+  .msg-success{background:#eaf3de;color:#3b6d11}
+  .msg-warn{background:#faeeda;color:#854f0b}
+  .msg-error{background:#fce8e8;color:#b71c1c}
+  .hidden{display:none}
+  .divider{border:none;border-top:0.5px solid rgba(0,0,0,0.1);margin:16px 0}
+  .file-name{font-size:12px;color:#666;margin-top:6px;text-align:center}
+  /* API Key 區 */
+  .apikey-row{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+  .apikey-row input{flex:1}
+  .apikey-row button{white-space:nowrap;padding:7px 14px;border:0.5px solid rgba(0,0,0,0.2);border-radius:8px;background:#fff;cursor:pointer;font-size:12px}
+  .apikey-row button:hover{background:#f5f5f3}
+  /* PO 結果區塊 */
+  .po-result-block{background:#f9f9f7;border:0.5px solid rgba(0,0,0,0.08);border-left:3px solid #185fa5;border-radius:8px;padding:12px 14px;margin-bottom:10px;font-size:12px;line-height:2}
+  .po-result-block .po-title{font-weight:600;color:#185fa5;font-size:13px;margin-bottom:4px}
+  .po-result-block .po-row{color:#1a1a1a}
+  .po-result-block .po-row span{color:#888;margin-right:4px}
+  .po-result-block .po-notfound{color:#aaa;font-style:italic;font-size:12px}
+  .po-result-block .po-src{font-size:10px;color:#bbb;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1><i class="ti ti-filter" style="font-size:18px;vertical-align:-2px;margin-right:6px"></i>訂單篩選與 Outlook 查詢工具</h1>
+
+  <!-- Step 1 -->
+  <div class="step">
+    <div class="step-num active" id="s1">1</div>
+    <div class="step-body">
+      <div class="step-title">上傳訂單追蹤表</div>
+      <div class="drop-zone" id="dropZone">
+        <i class="ti ti-file-spreadsheet"></i>
+        <p>拖曳 .xls / .xlsx 檔案到這裡</p>
+        <small>或點此選擇檔案</small>
+        <input type="file" id="fileInput" accept=".xls,.xlsx" style="display:none">
+      </div>
+      <div class="file-name hidden" id="fileName"></div>
+      <div id="step1Msg" class="hidden"></div>
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="step">
+    <div class="step-num" id="s2">2</div>
+    <div class="step-body">
+      <div class="step-title">設定出貨日期範圍（Shipment ready date）</div>
+      <div class="date-row" style="margin-top:8px">
+        <div><div class="field-label">開始日期</div><input type="date" id="startDate"></div>
+        <div><div class="field-label">結束日期</div><input type="date" id="endDate"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="step">
+    <div class="step-num" id="s3">3</div>
+    <div class="step-body">
+      <div class="step-title">篩選訂單 + 下載 Excel</div>
+      <button class="btn" id="filterBtn" disabled onclick="runFilter()">
+        <i class="ti ti-filter"></i> 開始篩選並產生 Excel
+      </button>
+      <div id="filterMsg" class="hidden"></div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="resultSection" class="hidden">
+    <hr class="divider">
+    <div class="stat-row">
+      <div class="stat"><div class="stat-val" id="statTotal">0</div><div class="stat-lbl">篩選筆數</div></div>
+      <div class="stat"><div class="stat-val" id="statDays">0</div><div class="stat-lbl">涵蓋天數</div></div>
+      <div class="stat"><div class="stat-val" id="statQty">0</div><div class="stat-lbl">總數量 (PCS)</div></div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">篩選結果</div>
+      <div class="table-wrap">
+        <table><thead id="resultHead"></thead><tbody id="resultBody"></tbody></table>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:6px">
+        <button class="copy-btn" onclick="copyTable()"><i class="ti ti-copy"></i> 複製表格</button>
+        <button class="copy-btn" onclick="downloadExcel()"><i class="ti ti-download"></i> 下載 Excel</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Outlook 查詢 -->
+    <div class="step" style="margin-top:4px">
+      <div class="step-num" id="s4">4</div>
+      <div class="step-body">
+        <div class="step-title">查詢 Outlook 郵件（採購單號 / 料號 / 數量 / 交期）</div>
+
+        <!-- API Key 輸入 -->
+        <div class="card" style="margin-bottom:10px;margin-top:6px">
+          <div class="section-title">Anthropic API Key</div>
+          <div class="apikey-row">
+            <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-...">
+            <button onclick="toggleKey()">顯示</button>
+            <button onclick="saveKey()" style="background:#e6f1fb;color:#185fa5;border-color:#b5d4f4">儲存</button>
+          </div>
+          <div style="font-size:11px;color:#aaa">Key 只存在本機記憶體，不會上傳。申請網址：console.anthropic.com</div>
+          <div id="keyMsg" class="hidden" style="margin-top:6px;font-size:11px"></div>
+        </div>
+
+        <button class="btn btn-blue" id="outlookBtn" onclick="runOutlookQuery()" disabled>
+          <i class="ti ti-mail-search"></i> 開始查詢 Outlook 郵件
+        </button>
+        <div id="outlookMsg" class="hidden"></div>
+        <div id="outlookResults" class="hidden" style="margin-top:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em">Outlook 查詢結果</div>
+            <button class="copy-btn" onclick="copyAllResults()"><i class="ti ti-copy"></i> 複製全部</button>
+          </div>
+          <div id="resultsBody"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+var parsedRows=[], filteredRows=[], headers=[], workbook=null, sheetName='';
+var apiKey = localStorage.getItem('anthropic_key') || '';
+
+// 初始化 API Key
+if(apiKey){
+  document.getElementById('apiKeyInput').value = apiKey;
+  document.getElementById('keyMsg').textContent = '✓ 已載入儲存的 Key';
+  document.getElementById('keyMsg').style.color = '#3b6d11';
+  document.getElementById('keyMsg').classList.remove('hidden');
+}
+
+function toggleKey(){
+  var inp = document.getElementById('apiKeyInput');
+  var btn = event.target;
+  if(inp.type==='password'){inp.type='text';btn.textContent='隱藏';}
+  else{inp.type='password';btn.textContent='顯示';}
+}
+
+function saveKey(){
+  var val = document.getElementById('apiKeyInput').value.trim();
+  if(!val || !val.startsWith('sk-')){
+    document.getElementById('keyMsg').textContent = '⚠ 格式不對，請確認 Key 是否完整';
+    document.getElementById('keyMsg').style.color = '#854f0b';
+    document.getElementById('keyMsg').classList.remove('hidden');
+    return;
+  }
+  localStorage.setItem('anthropic_key', val);
+  apiKey = val;
+  document.getElementById('keyMsg').textContent = '✓ 已儲存！下次開啟自動帶入';
+  document.getElementById('keyMsg').style.color = '#3b6d11';
+  document.getElementById('keyMsg').classList.remove('hidden');
+  if(filteredRows.length > 0) document.getElementById('outlookBtn').disabled = false;
+}
+
+// ── File Upload ──
+var dropZone=document.getElementById('dropZone');
+var fileInput=document.getElementById('fileInput');
+dropZone.addEventListener('click',function(){fileInput.click();});
+dropZone.addEventListener('dragover',function(e){e.preventDefault();dropZone.classList.add('drag-over');});
+dropZone.addEventListener('dragleave',function(){dropZone.classList.remove('drag-over');});
+dropZone.addEventListener('drop',function(e){e.preventDefault();dropZone.classList.remove('drag-over');if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);});
+fileInput.addEventListener('change',function(){if(fileInput.files[0])handleFile(fileInput.files[0]);});
+
+function handleFile(f){
+  document.getElementById('fileName').textContent='已載入：'+f.name;
+  document.getElementById('fileName').classList.remove('hidden');
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var data=new Uint8Array(e.target.result);
+    workbook=XLSX.read(data,{type:'array',cellDates:true});
+    sheetName=workbook.SheetNames.find(function(s){return s.toUpperCase().indexOf('SCOSCHE')>-1;})||workbook.SheetNames[0];
+    var raw=XLSX.utils.sheet_to_json(workbook.Sheets[sheetName],{header:1,defval:'',raw:false,dateNF:'yyyy-mm-dd'});
+    headers=[];parsedRows=[];
+    for(var c=0;c<(raw[1]||[]).length;c++){
+      var h=(raw[1][c]||'').toString().trim();
+      var h2=raw[2]?(raw[2][c]||'').toString().trim():'';
+      headers.push(h||h2||'Col'+c);
+    }
+    for(var r=3;r<raw.length;r++){if(raw[r].some(function(v){return v!=='';}))parsedRows.push(raw[r]);}
+    document.getElementById('s1').className='step-num done';
+    document.getElementById('s2').className='step-num active';
+    document.getElementById('filterBtn').disabled=false;
+    showMsg('step1Msg','已讀取 '+parsedRows.length+' 筆訂單（'+sheetName+' Sheet）','success');
+  };
+  reader.readAsArrayBuffer(f);
+}
+
+function readyDateCol(){
+  for(var i=0;i<headers.length;i++){if(headers[i].toLowerCase().indexOf('ready')>-1||headers[i].toLowerCase().indexOf('shipment')>-1)return i;}
+  return 7;
+}
+
+function parseD(v){
+  if(!v)return null;
+  var d=new Date(v.toString().trim());
+  return isNaN(d)?null:d;
+}
+
+// ── Filter ──
+function runFilter(){
+  var start=document.getElementById('startDate').value;
+  var end=document.getElementById('endDate').value;
+  if(!start||!end){showMsg('filterMsg','請選擇開始和結束日期','warn');return;}
+  var s=new Date(start),e=new Date(end);
+  var col=readyDateCol();
+  filteredRows=parsedRows.filter(function(row){var d=parseD(row[col]);return d&&d>=s&&d<=e;});
+  if(filteredRows.length===0){showMsg('filterMsg','此日期範圍內沒有訂單','warn');return;}
+  showMsg('filterMsg','找到 '+filteredRows.length+' 筆訂單','success');
+  document.getElementById('s2').className='step-num done';
+  document.getElementById('s3').className='step-num done';
+  document.getElementById('s4').className='step-num active';
+  renderStats(filteredRows,col,s,e);
+  renderTable(filteredRows);
+  document.getElementById('resultSection').classList.remove('hidden');
+  document.getElementById('outlookResults').classList.add('hidden');
+  // 如果已有 key 就啟用按鈕
+  var k = document.getElementById('apiKeyInput').value.trim() || apiKey;
+  if(k) document.getElementById('outlookBtn').disabled = false;
+}
+
+function renderStats(rows,col,s,e){
+  document.getElementById('statTotal').textContent=rows.length;
+  document.getElementById('statDays').textContent=Math.round((e-s)/(1000*60*60*24))+1;
+  var qtyCol=headers.findIndex(function(h){return h.toLowerCase().indexOf('qty')>-1||h.toLowerCase().indexOf("q'ty")>-1;});
+  var total=0;
+  rows.forEach(function(r){var v=parseFloat((r[qtyCol]||'').toString().replace(/,/g,''));if(!isNaN(v))total+=v;});
+  document.getElementById('statQty').textContent=total>0?total.toLocaleString():'-';
+}
+
+function renderTable(rows){
+  document.getElementById('resultHead').innerHTML='<tr>'+headers.map(function(h){return '<th>'+h+'</th>';}).join('')+'</tr>';
+  document.getElementById('resultBody').innerHTML=rows.map(function(r){return '<tr>'+headers.map(function(_,i){return '<td>'+(r[i]||'')+'</td>';}).join('')+'</tr>';}).join('');
+}
+
+function copyTable(){
+  var lines=[headers.join('\t')];
+  filteredRows.forEach(function(r){lines.push(r.join('\t'));});
+  navigator.clipboard.writeText(lines.join('\n')).then(function(){alert('已複製！');});
+}
+
+function downloadExcel(){
+  var raw=XLSX.utils.sheet_to_json(workbook.Sheets[sheetName],{header:1,defval:'',raw:true});
+  var newData=raw.slice(0,3).concat(filteredRows);
+  var newWB=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(newWB,XLSX.utils.aoa_to_sheet(newData),sheetName);
+  var s=document.getElementById('startDate').value.replace(/-/g,'').slice(4);
+  var e=document.getElementById('endDate').value.replace(/-/g,'').slice(4);
+  XLSX.writeFile(newWB,'filtered_orders_'+s+'_'+e+'.xlsx');
+}
+
+// ── Outlook Query via Anthropic API + MS365 MCP ──
+async function runOutlookQuery(){
+  var key = document.getElementById('apiKeyInput').value.trim() || apiKey;
+  if(!key){showMsg('outlookMsg','請先輸入並儲存 Anthropic API Key','warn');return;}
+
+  var poCol=headers.findIndex(function(h){return h.toLowerCase().indexOf('po')>-1;});
+  var itemCol=headers.findIndex(function(h){return h.toLowerCase().indexOf('item')>-1;});
+  var readyCol=readyDateCol();
+  var qtyCol=headers.findIndex(function(h){return h.toLowerCase().indexOf('qty')>-1||h.toLowerCase().indexOf("q'ty")>-1;});
+
+  var poList = [];
+  filteredRows.forEach(function(r){
+    var po=(r[poCol]||'').toString().trim();
+    var item=(r[itemCol]||'').toString().trim();
+    var date=(r[readyCol]||'').toString().trim();
+    var qty=(r[qtyCol]||'').toString().trim();
+    if(po) poList.push({po:po, item:item, date:date, qty:qty});
+  });
+
+  if(poList.length===0){showMsg('outlookMsg','沒有可查詢的PO','warn');return;}
+
+  document.getElementById('outlookBtn').disabled = true;
+  document.getElementById('outlookResults').classList.add('hidden');
+  showMsg('outlookMsg','查詢中，請稍候...','info');
+
+  var poSummary = poList.map(function(p){
+    return 'PO#'+p.po+(p.item?' / '+p.item:'')+(p.qty?' / '+p.qty+'PCS':'')+(p.date?' (交期'+p.date+')':'');
+  }).join('\n');
+
+  var prompt = '請從 Outlook 郵件（收件匣和封存資料夾）查詢以下每筆訂單的資料。每筆請以 JSON 格式回覆，只回 JSON array，不要其他文字：\n\n' +
+    '格式：[{"po":"客人PO號","pc813":"採購單號如PC813-XXXXXXX或null","item":"料號","qty":"數量含PCS","date":"交期","found":true或false}]\n\n' +
+    '要查詢的訂單：\n' + poSummary;
+
+  try {
+    var resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'mcp-client-2025-04-04'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2000,
+        mcp_servers: [{
+          type: 'url',
+          url: 'https://microsoft365.mcp.claude.com/mcp',
+          name: 'microsoft365'
+        }],
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if(!resp.ok){
+      var err = await resp.json();
+      throw new Error(err.error?.message || 'HTTP ' + resp.status);
+    }
+
+    var data = await resp.json();
+    var text = '';
+    if(data.content && Array.isArray(data.content)){
+      data.content.forEach(function(b){ if(b.type==='text') text += b.text; });
+    }
+
+    // Parse JSON from response
+    var jsonMatch = text.match(/\[[\s\S]*\]/);
+    if(!jsonMatch) throw new Error('回傳格式有誤，請重試');
+    var results = JSON.parse(jsonMatch[0]);
+
+    renderOutlookResults(results);
+    document.getElementById('s4').className='step-num done';
+    showMsg('outlookMsg','查詢完成，共 '+results.length+' 筆','success');
+
+  } catch(err) {
+    showMsg('outlookMsg','查詢失敗：'+err.message,'error');
+  }
+
+  document.getElementById('outlookBtn').disabled = false;
+}
+
+function renderOutlookResults(results){
+  var html = '';
+  var allText = '';
+
+  results.forEach(function(r){
+    var pc813 = r.pc813 || '（郵件中查無採購單號）';
+    var item  = r.item  || '—';
+    var qty   = r.qty   || '—';
+    var date  = r.date  || '—';
+
+    html += '<div class="po-result-block">';
+    html += '<div class="po-title">PO# ' + r.po + '</div>';
+    if(r.found === false){
+      html += '<div class="po-notfound">Outlook 中查無相關郵件</div>';
+      allText += 'PO#'+r.po+' — 查無相關郵件\n\n';
+    } else {
+      html += '<div class="po-row"><span>採購單號：</span>' + pc813 + '</div>';
+      html += '<div class="po-row"><span>客人PO#：</span>' + r.po + '</div>';
+      html += '<div class="po-row"><span>料號：</span>' + item + '</div>';
+      html += '<div class="po-row"><span>數量：</span>' + qty + '</div>';
+      html += '<div class="po-row"><span>交期：</span>' + date + '</div>';
+      allText += '採購單號：'+pc813+'\n客人PO#：'+r.po+'\n料號：'+item+'\n數量：'+qty+'\n交期：'+date+'\n\n';
+    }
+    html += '</div>';
+  });
+
+  document.getElementById('resultsBody').innerHTML = html;
+  document.getElementById('outlookResults').setAttribute('data-text', allText.trim());
+  document.getElementById('outlookResults').classList.remove('hidden');
+}
+
+function copyAllResults(){
+  var text = document.getElementById('outlookResults').getAttribute('data-text') || '';
+  navigator.clipboard.writeText(text).then(function(){
+    var btn = event.target;
+    var orig = btn.innerHTML;
+    btn.innerHTML = '<i class="ti ti-check"></i> 已複製！';
+    setTimeout(function(){ btn.innerHTML = orig; }, 1500);
+  });
+}
+
+function showMsg(id,text,type){
+  var el=document.getElementById(id);
+  el.className='msg msg-'+(type==='success'?'success':type==='warn'?'warn':type==='error'?'error':'info');
+  el.textContent=text;
+  el.classList.remove('hidden');
+}
+</script>
+</body>
+</html>
